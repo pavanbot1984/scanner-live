@@ -31,6 +31,25 @@ FAPI_BASE = "https://fapi.binance.com"
 ASSETS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 TFS = ["15m", "1h", "4h"]
 
+# ---------- utils: percentile + NaN guards ----------
+def _normalize_percentile(p) -> float:
+    """
+    Accepts 40 or 0.40 and returns a valid percentile q in [0, 100] for numpy.percentile.
+    """
+    try:
+        q = float(p)
+    except Exception:
+        q = 40.0
+    if 0.0 <= q <= 1.0:  # treat as fraction
+        q *= 100.0
+    # clamp defensively
+    q = max(0.0, min(100.0, q))
+    return q
+
+def _finite_series(x: pd.Series) -> pd.Series:
+    s = pd.to_numeric(pd.Series(x), errors="coerce")
+    return s[np.isfinite(s)]
+
 # ---------- time/alerts ----------
 def ts_now_ms() -> int:
     import time
@@ -101,19 +120,32 @@ def detect_compression_slice_up_to(sub: pd.DataFrame, bbw: pd.Series,
     """
     Detect compression on LAST bar of `sub`, and LOCK box using the
     contiguous <=thresh segment that ENDS at that bar.
+    bb_percentile may be given as 40 or 0.40 (both mean 40th percentile).
     """
-    if len(bbw.dropna()) < max(20, 30):
+    # need enough data
+    bbw_finite = _finite_series(bbw)
+    if len(bbw_finite) < max(20, 30):
         return {"is_compression": False}
-    recent = bbw.tail(bb_window).dropna()
-    if recent.empty: return {"is_compression": False}
-    thresh = np.nanpercentile(recent.values, bb_percentile * 100.0)
-    last_bbw = float(bbw.iloc[-1])
+
+    # slice recent window and sanitize
+    recent = _finite_series(bbw.tail(bb_window))
+    if recent.empty:
+        return {"is_compression": False}
+
+    # normalize percentile safely for numpy.percentile
+    q = _normalize_percentile(bb_percentile)
+    thresh = float(np.percentile(recent.values, q))
+
+    last_bbw = float(bbw.iloc[-1]) if np.isfinite(bbw.iloc[-1]) else np.nan
     if not (np.isfinite(last_bbw) and last_bbw <= thresh):
         return {"is_compression": False}
 
-    seg_len = 0; idx = len(sub) - 1
-    while idx >= 0 and pd.notna(bbw.iloc[idx]) and bbw.iloc[idx] <= thresh:
-        seg_len += 1; idx -= 1
+    # walk back contiguous segment <= thresh
+    seg_len = 0
+    idx = len(sub) - 1
+    while idx >= 0 and pd.notna(bbw.iloc[idx]) and float(bbw.iloc[idx]) <= thresh:
+        seg_len += 1
+        idx -= 1
     if seg_len < 3:
         return {"is_compression": False}
 
@@ -355,7 +387,8 @@ def main():
     # Compression knobs
     ap.add_argument("--bb-len", type=int, default=20)
     ap.add_argument("--bb-mult", type=float, default=2.0)
-    ap.add_argument("--bb-percentile", type=float, default=0.20)
+    ap.add_argument("--bb-percentile", type=float, default=0.20,
+                    help="Compression threshold percentile; accepts 40 (means 40th) or 0.40 (also 40th)")
     ap.add_argument("--bb-window", type=int, default=120)
 
     # Accumulation knobs
