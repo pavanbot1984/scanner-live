@@ -7,9 +7,9 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "/app/start.sh"
     envVars:
-      - key: TG_TOKEN
+      - key: 8046031500:AAGpTEu6uf6-I5fqOQ2h3SqBShZzs1bkSe8
         sync: false
-      - key: TG_CHAT
+      - key: 6614671189
         sync: false
       - key: GSHEET_ID
         sync: false
