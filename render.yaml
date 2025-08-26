@@ -1,44 +1,19 @@
 services:
-  - type: cron
+  - type: worker
     name: futures-compression-accum-scanner
     env: python
     plan: starter
     region: oregon
-    schedule: "*/15 * * * *"    # every 15 minutes
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python run_scan_and_log.py"
+    startCommand: "/app/start.sh"
     envVars:
-      - key: SCANNER_PATH
-        value: futures_compression_accumulation_scanner_v2.py
-      - key: GSHEET_NAME
-        value: Compression_Accum_Logs
-      - key: PAD
-        value: "0.001"
-      - key: ALERT_THRESH
-        value: "12"
-      - key: MIN_BOX_15M
-        value: "0.10"
-      - key: MIN_BOX_1H
-        value: "0.20"
-      - key: MIN_BOX_4H
-        value: "0.18"
-      - key: MIN_EXP_X
-        value: "3"
-      - key: TARGET_R
-        value: "3"
-      - key: VBURST_MULT
-        value: "1.25"
-      - key: VBURST_MULT_HIGHER
-        value: "1.5"
-      - key: ENTRY_RETEST
-        value: "true"
-      # Telegram (set in dashboard as secrets)
-      - key: TG
-        value: "true"
       - key: TG_TOKEN
         sync: false
       - key: TG_CHAT
         sync: false
-      # Google service account JSON (full JSON pasted as secret)
-      - key: GCP_SA_JSON
+      - key: GSHEET_ID
+        sync: false
+      - key: GSHEET_TAB
+        value: signals
+      - key: GSHEET_CREDS_B64
         sync: false
