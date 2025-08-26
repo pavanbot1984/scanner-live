@@ -11,7 +11,7 @@ services:
         sync: false
       - key: 6614671189
         sync: false
-      - key: GSHEET_ID
+      - key: 1C678RShUzqW0o26MWA6bJtgG0A98J07gxh1iWxZHOu0
         sync: false
       - key: GSHEET_TAB
         value: signals
